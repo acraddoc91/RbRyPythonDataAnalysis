@@ -9,12 +9,13 @@ import matplotlib.pyplot as plt
 import scipy.optimize as optimise
 import pandas as pd
 import sys
+import constants
+from constants import isatSigma
 
 def fittingClassFromString(className):
-    print sys.modules[__name__]
     return getattr(sys.modules[__name__], className)
 
-class baseImageFitting:
+class baseImageFitting(object):
     procIm = np.empty([0,0])
     roiPoints = None
     rotationAngle = 0
@@ -26,8 +27,12 @@ class baseImageFitting:
             self.roiPoints = [1,1,self.procIm.shape[0],self.procIm.shape[1]]
     def getCutImage(self):
         return self.procIm[self.roiPoints[0]:self.roiPoints[0]+self.roiPoints[2],self.roiPoints[1]:self.roiPoints[1]+self.roiPoints[3]]
+    def doFits(self,expParams):
+        pass
+    def getFitVars(self):
+        return pd.DataFrame({'rotAngle':self.rotationAngle,'roi':[self.roiPoints]})
 
-class absorptionImage(baseImageFitting):
+class absorptionImage(baseImageFitting,object):
     atomNumber = 0
     def __init__(self,filename):
             dataFile = h5py.File(filename,'r')
@@ -39,8 +44,23 @@ class absorptionImage(baseImageFitting):
         plt.imshow(self.getCutImage(),cmap='plasma',clim=(0,np.amax(self.procIm)))
         plt.colorbar()
         plt.show()
+    def calculateAtomNumber(self,imagingDetuning,imagingIntensity):
+        sigma = constants.sig0Sigma/(1+4*(2*np.pi*imagingDetuning*10**6/constants.gam)**2+(imagingIntensity/isatSigma)) * 10**(-4)
+        self.atomNumber = np.sum(self.getCutImage())*(self.pixelSize*10**(-6)/self.magnification)**2/sigma
+    def doFits(self,expParams):
+        imagingDetuning = 0
+        imagingIntensity = 0
+        if 'ImagingDetuning' in expParams.columns:
+            imagingDetuning = expParams['ImagingDetuning']  
+        if 'ImagingIntensity' in expParams.columns:
+            imagingIntensity = expParams['ImagingIntensity']
+        self.calculateAtomNumber(imagingDetuning, imagingIntensity)
+        super(absorptionImage,self).doFits(expParams)
+    def getFitVars(self):
+        childFrame = pd.DataFrame({'N_atoms':[self.atomNumber]})
+        return childFrame.join(super(absorptionImage,self).getFitVars())
         
-class absGaussFit(absorptionImage):
+class absGaussFit(absorptionImage,object):
     centreX = 0
     centreY = 0
     xCoffs = [0,1,900,300]
@@ -58,10 +78,12 @@ class absGaussFit(absorptionImage):
         yVec = np.sum(self.getCutImage()[:][self.centreX-10:self.centreX+10],axis=0)/21
         ypix = np.arange(0,len(yVec))
         self.yCoffs = optimise.curve_fit(self.gaussian, ypix, yVec, p0=self.yCoffs)[0]
-    def doFits(self):
+    def doFits(self,expParams):
         self.findCentreCoordinate()
         self.runXFit()
         self.runYFit()
+        super(absGaussFit,self).doFits(expParams)
     def getFitVars(self):
-        return pd.DataFrame({'sigma_x':[self.xCoffs[3]],'sigma_y':[self.yCoffs[3]],'N_atoms':self.atomNumber,'centreX':self.xCoffs[2],'centreY':self.yCoffs[2],'rotAngle':self.rotationAngle})
+        childFrame = pd.DataFrame({'sigma_x':[self.xCoffs[3]*self.pixelSize/self.magnification],'sigma_y':[self.yCoffs[3]*self.pixelSize/self.magnification],'centreX':self.xCoffs[2],'centreY':self.yCoffs[2]})
+        return childFrame.join(super(absGaussFit,self).getFitVars())
         

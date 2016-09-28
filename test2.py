@@ -6,6 +6,7 @@ Created on Sep 21, 2016
 import fittingClasses
 import h5py
 import pandas as pd
+import constants
 
 def shotProcessor(filename,fitType):
     h5file = h5py.File(filename,'r')
@@ -14,8 +15,13 @@ def shotProcessor(filename,fitType):
     shotFrame = pd.DataFrame()
     while splitInformString[currentVariableIndex] != '#':
         currSplitLine = splitInformString[currentVariableIndex].split('=')
-        shotFrame[currSplitLine[0]] = [float(currSplitLine[1])]
+        shotFrame[currSplitLine[0].strip()] = [float(currSplitLine[1])]
         currentVariableIndex = currentVariableIndex+1
+    fittingClass = fittingClasses.fittingClassFromString(fitType)
+    fitObject = fittingClass(filename)
+    fitObject.doFits(shotFrame)
+    shotFrame = shotFrame.join(fitObject.getFitVars())
     return shotFrame
 
-shotProcessor('C:/Data/27/FleaZ_27Jun2016_0002.h5', 'absGaussFit')
+out = shotProcessor('C:/Data/27/FleaZ_27Jun2016_0003.h5', 'absGaussFit')
+print out
