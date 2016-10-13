@@ -1,54 +1,69 @@
-# -*- coding: utf-8 -*-
+'''
+Created on Oct 5, 2016
 
-# Form implementation generated from reading ui file 'test.ui'
-#
-# Created by: PyQt4 UI code generator 4.11.4
-#
-# WARNING! All changes made in this file will be lost!
+@author: Alex
+'''
+from PyQt4.uic import loadUiType
+import PyQt4.QtGui
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt4agg import (FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
+import numpy as np
+import pandas as pd
+from processing import shotProcessor
 
-from PyQt4 import QtCore, QtGui
+Ui_MainWindow,QMainWindow = loadUiType('mainGUI.ui')
 
-try:
-    _fromUtf8 = QtCore.QString.fromUtf8
-except AttributeError:
-    def _fromUtf8(s):
-        return s
+class Main(QMainWindow,Ui_MainWindow):
+    def __init__(self):
+        super(Main,self).__init__()
+        self.setupUi(self)
+        self.cosPlot.clicked.connect(self.cosPlotFunc)
+        self.sinPlot.clicked.connect(self.sinPlotFunc)
+        self.loadData.clicked.connect(self.loadDataFunc)
+        self.shotData = pd.DataFrame()
+        
+        fig = Figure()
+        self.addmpl(fig)
+    def addmpl(self,fig):
+        self.canvas = FigureCanvas(fig)
+        self.livePlotLay.addWidget(self.canvas)
+        self.canvas.draw()
+        self.toolbar = NavigationToolbar(self.canvas,self,coordinates=True)
+        self.livePlotLay.addWidget(self.toolbar)
+    def rmmpl(self):
+        self.livePlotLay.removeWidget(self.canvas)
+        self.canvas.close()
+        self.livePlotLay.removeWidget(self.toolbar)
+        self.toolbar.close()
+    def cosPlotFunc(self):
+        self.rmmpl()
+        fig = Figure()
+        axes = fig.add_subplot(111)
+        x = np.linspace(0,2*np.pi,1000)
+        axes.plot(x,np.cos(x))
+        self.addmpl(fig)
+    def sinPlotFunc(self):
+        self.rmmpl()
+        fig = Figure()
+        axes = fig.add_subplot(111)
+        x = np.linspace(0,2*np.pi,1000)
+        axes.plot(x,np.sin(x))
+        self.addmpl(fig)
+    def loadDataFunc(self):
+        fileDialog = QtGui.QFileDialog(self)
+        fileDialog.setFilters('*.h5')
+        fileDialog.setFileMode(QtGui.QFileDialog.ExistingFiles)
+        fileDialog.exec_()
+        for fileName in fileDialog.selectedFiles():
+            print fileName
+            self.shotData = self.shotData.append(shotProcessor(str(fileName), 'absGaussFit'), ignore_index=True)
+            print self.shotData
 
-try:
-    _encoding = QtGui.QApplication.UnicodeUTF8
-    def _translate(context, text, disambig):
-        return QtGui.QApplication.translate(context, text, disambig, _encoding)
-except AttributeError:
-    def _translate(context, text, disambig):
-        return QtGui.QApplication.translate(context, text, disambig)
-
-class Ui_MainWindow(object):
-    def setupUi(self, MainWindow):
-        MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(800, 600)
-        self.centralwidget = QtGui.QWidget(MainWindow)
-        self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
-        self.pushButton = QtGui.QPushButton(self.centralwidget)
-        self.pushButton.setGeometry(QtCore.QRect(110, 120, 75, 23))
-        self.pushButton.setObjectName(_fromUtf8("pushButton"))
-        self.verticalLayoutWidget = QtGui.QWidget(self.centralwidget)
-        self.verticalLayoutWidget.setGeometry(QtCore.QRect(200, 40, 521, 311))
-        self.verticalLayoutWidget.setObjectName(_fromUtf8("verticalLayoutWidget"))
-        self.mplvl = QtGui.QVBoxLayout(self.verticalLayoutWidget)
-        self.mplvl.setObjectName(_fromUtf8("mplvl"))
-        MainWindow.setCentralWidget(self.centralwidget)
-        self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 800, 21))
-        self.menubar.setObjectName(_fromUtf8("menubar"))
-        MainWindow.setMenuBar(self.menubar)
-        self.statusbar = QtGui.QStatusBar(MainWindow)
-        self.statusbar.setObjectName(_fromUtf8("statusbar"))
-        MainWindow.setStatusBar(self.statusbar)
-
-        self.retranslateUi(MainWindow)
-        QtCore.QMetaObject.connectSlotsByName(MainWindow)
-
-    def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
-        self.pushButton.setText(_translate("MainWindow", "PushButton", None))
-
+if __name__=='__main__':
+    import sys
+    from PyQt4 import QtGui
+    
+    app = QtGui.QApplication(sys.argv)
+    main = Main()
+    main.show()
+    sys.exit(app.exec_())
