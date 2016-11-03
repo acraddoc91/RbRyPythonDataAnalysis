@@ -5,12 +5,14 @@ Created on Sep 2, 2016
 '''
 import h5py
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import scipy.optimize as optimise
 import pandas as pd
 import sys
 import constants
 from constants import isatSigma
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 
 def fittingClassFromString(className):
     return getattr(sys.modules[__name__], className)
@@ -41,9 +43,13 @@ class absorptionImage(baseImageFitting,object):
             backIm = np.array(dataFile.get('/Images/Background'),dtype=float)
             self.setProcessedImage(-np.log(np.divide(absIm-backIm,probeIm-backIm)))
     def showImage(self):
-        plt.imshow(self.getCutImage(),cmap='plasma',clim=(0,np.amax(self.procIm)))
-        plt.colorbar()
-        plt.show()
+        fig = Figure()
+        axes = fig.add_subplot(111)
+        x=axes.imshow(self.getCutImage(),cmap='plasma',clim=(0,np.amax(self.procIm)))
+        divider = make_axes_locatable(axes)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        fig.colorbar(x,cax)
+        return fig
     def calculateAtomNumber(self,imagingDetuning,imagingIntensity):
         sigma = constants.sig0Sigma/(1+4*(2*np.pi*imagingDetuning*10**6/constants.gam)**2+(imagingIntensity/isatSigma)) * 10**(-4)
         self.atomNumber = np.sum(self.getCutImage())*(self.pixelSize*10**(-6)/self.magnification)**2/sigma

@@ -23,8 +23,19 @@ def shotProcessor(filename,fitType):
     #Grab the FileNumber
     fileNumIndex = [i for i, elem in enumerate(splitInformString) if 'FileNumber' in elem]
     shotFrame['FileNumber'] = int(splitInformString[fileNumIndex[0]].split('=')[1])
+    #And the filename
+    shotFrame['Filename'] = str(filename)
+    #And the fittype
+    shotFrame['FitType'] = str(fitType)
     fittingClass = fittingClasses.fittingClassFromString(fitType)
     fitObject = fittingClass(filename)
     fitObject.doFits(shotFrame)
     shotFrame = shotFrame.join(fitObject.getFitVars())
     return shotFrame
+
+def grabImage(filename,fitType):
+    fittingClass = fittingClasses.fittingClassFromString(fitType)
+    fitObject = fittingClass(filename)
+    image = fitObject.showImage()
+    del fitObject
+    return image

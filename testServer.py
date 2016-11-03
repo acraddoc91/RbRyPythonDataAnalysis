@@ -3,11 +3,16 @@ Created on Oct 11, 2016
 
 @author: Sandy
 '''
-
+import matplotlib as mpl
+mpl.use('Agg')
 from PyQt4.uic import loadUiType
-from PyQt4.QtCore import (QThread, pyqtSignal,SIGNAL)
+from PyQt4.QtCore import (QThread, pyqtSignal,SIGNAL,Qt)
 from dataServer import (requestServer,requestHandler)
-from processing import shotProcessor
+from processing import (shotProcessor,grabImage)
+from PyQt4.QtGui import (QListWidgetItem,QTableWidgetItem, QComboBox, QCheckBox,
+    QWidget, QHBoxLayout)
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt4agg import (FigureCanvasQTAgg as FigureCanvas)
 import pandas as pd
 import threading
 import time
@@ -72,18 +77,112 @@ class serverThread(QThread):
 class Main(qMainWindow,uiMainWindow):
     #This is our main data frame. It will hold all our data, equivalent to the main workspace in Matlab
     data = pd.DataFrame()
+    varNames = []
     def __init__(self):
+        #Do the super initialisation and setup the UI
         super(Main,self).__init__()
         self.setupUi(self)
+        
+        #Start the server thread to grab our data and whatnot
         self.servThread = serverThread()
         self.servThread.start()
-        self.connect(self.servThread, SIGNAL("showData"),self.showData)
+        
+        #Setup the data and image figures
+        self.dataFig = Figure()
+        self.imageFig = Figure()
+        
+        #Connect everything to their relevant functions
         self.connect(self.servThread,SIGNAL('newData'),self.grabNewData)
-    def showData(self):
-        self.textBox.setText(str(self.data))
+        self.xAxis.itemClicked.connect(self.plotData)
+        self.yAxis.itemClicked.connect(self.plotData)
+        self.indexList.itemClicked.connect(self.showImage)
+        self.addCut.clicked.connect(self.addCutFunc)
+        self.delCut.clicked.connect(self.delCutFunc)
+        self.setCuts.clicked.connect(self.setCutsFunc)
+        
+        #Setup cutTable
+        self.cutTable.setHorizontalHeaderLabels(['Field','Cut','Active'])
+    
+    #Function called to plot data to the graph in tab 1
+    def plotData(self):
+        if not self.data.empty:
+            xAxisVarName = self.xAxis.currentItem().text()
+            yAxisVarname = self.yAxis.currentItem().text()
+            self.dataFig.clear()
+            axes = self.dataFig.add_subplot(111)
+            axes.plot(self.data[str(xAxisVarName)],self.data[str(yAxisVarname)],'.')
+            axes.set_xlabel(str(xAxisVarName))
+            axes.set_ylabel(str(yAxisVarname))
+            if hasattr(self, 'plotCanvas'):
+                self.dataPlotLayout.removeWidget(self.plotCanvas)
+                self.plotCanvas.close()
+            self.plotCanvas = FigureCanvas(self.dataFig)
+            self.dataPlotLayout.addWidget(self.plotCanvas)
+            self.plotCanvas.draw()
+            del axes
+            
+    #Function called to update image in tab 2
+    def showImage(self):
+        dummy = self.data[self.data['FileNumber'] == int(str(self.indexList.currentItem().text()))]
+        self.imageFig.clear()
+        self.imageFig = grabImage(dummy['Filename'].values[-1],dummy['FitType'].values[-1])
+        if hasattr(self, 'imageCanvas'):
+            self.imageIndexLayout.removeWidget(self.imageCanvas)
+            self.imageCanvas.close()
+        self.imageCanvas = FigureCanvas(self.imageFig)
+        self.imageIndexLayout.addWidget(self.imageCanvas)
+        self.imageCanvas.draw()
+        
+        self.imageDataTable.clear()
+        self.imageDataTable.setRowCount(len(self.varNames))
+        for i in xrange(0,len(self.varNames)):
+            self.imageDataTable.setItem(i,0,QTableWidgetItem(str(self.varNames[i])))
+            self.imageDataTable.setItem(i,1,QTableWidgetItem(str(dummy[self.varNames[i]].values[-1])))
+        del dummy
+        
+    #Function called when data is available in the server thread
     def grabNewData(self):
         self.data = self.data.append(self.servThread.newData,ignore_index=True)
-        self.servThread.newData = pd.DataFrame()
+        newNames = [x for x in self.data.columns.values.tolist() if x not in self.varNames]
+        for name in newNames:
+            self.xAxis.addItem(QListWidgetItem(name))
+            self.yAxis.addItem(QListWidgetItem(name))
+        for index in self.servThread.newData['FileNumber']:
+            self.indexList.addItem(QListWidgetItem(str(index)))
+        if self.varNames == []:
+            self.xAxis.setCurrentRow(0)
+            self.yAxis.setCurrentRow(0)
+            self.indexList.setCurrentRow(0)
+            self.plotData()
+        self.varNames = self.varNames+newNames
+        self.servThread.newData = pd.DataFrame()  
+    def addCutFunc(self):
+        self.cutTable.insertRow(self.cutTable.rowCount())
+        numRows = self.cutTable.rowCount()
+        newComboBox = QComboBox()
+        for name in self.varNames:
+            newComboBox.addItem(name)
+        self.cutTable.setCellWidget(numRows-1,0,newComboBox)
+        self.cutTable.setCellWidget(numRows-1,2,QCheckBox())
+    def delCutFunc(self):
+        dummy = self.cutTable.selectionModel()
+        delRows = []
+        for selectObj in dummy.selectedRows():
+            delRows.append(selectObj.row())
+        del dummy
+        delRows = list(reversed(delRows))
+        for row in delRows:
+            self.cutTable.removeRow(row)
+    def setCutsFunc(self):
+        rowCount = self.cutTable.rowCount()
+        for i in xrange(0,rowCount):
+            if self.cutTable.cellWidget(i,2).isChecked():
+                field = str(self.cutTable.cellWidget(i,0).currentText())
+                cutText = str(self.cutTable.item(i,1).text())
+                andSplitCutText = cutText.split('&&')
+                for andSplitString in andSplitCutText:
+                    orSplitString = andSplitString.split('||')
+                    print orSplitString
         
 if __name__=='__main__':
     import sys
