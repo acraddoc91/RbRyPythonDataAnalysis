@@ -4,6 +4,7 @@ Created on Oct 11, 2016
 @author: Sandy
 '''
 import matplotlib as mpl
+from traitlets.config.application import catch_config_error
 mpl.use('Agg')
 from PyQt4.uic import loadUiType
 from PyQt4.QtCore import (QThread, pyqtSignal,SIGNAL,Qt)
@@ -17,6 +18,8 @@ import pandas as pd
 import threading
 import time
 import json
+import gc
+import objgraph
 
 #This loads the UI we want to use
 uiMainWindow, qMainWindow = loadUiType('testServer.ui')    
@@ -89,7 +92,14 @@ class Main(qMainWindow,uiMainWindow):
         
         #Setup the data and image figures
         self.dataFig = Figure()
+        self.dataAxes = self.dataFig.add_subplot(111)
+        self.plotCanvas = FigureCanvas(self.dataFig)
+        self.dataPlotLayout.addWidget(self.plotCanvas)
+        
         self.imageFig = Figure()
+        self.imageAxes = self.imageFig.add_subplot(111)
+        self.imageCanvas = FigureCanvas(self.imageFig)
+        self.imageIndexLayout.addWidget(self.imageCanvas)
         
         #Connect everything to their relevant functions
         self.connect(self.servThread,SIGNAL('newData'),self.grabNewData)
@@ -101,36 +111,31 @@ class Main(qMainWindow,uiMainWindow):
         self.setCuts.clicked.connect(self.setCutsFunc)
         
         #Setup cutTable
-        self.cutTable.setHorizontalHeaderLabels(['Field','Cut','Active'])
+        self.cutTable.setHorizontalHeaderLabels(['Field','Cut Type','Cut Value','Active'])
     
     #Function called to plot data to the graph in tab 1
     def plotData(self):
         if not self.data.empty:
             xAxisVarName = self.xAxis.currentItem().text()
             yAxisVarname = self.yAxis.currentItem().text()
-            self.dataFig.clear()
-            axes = self.dataFig.add_subplot(111)
-            axes.plot(self.data[str(xAxisVarName)],self.data[str(yAxisVarname)],'.')
-            axes.set_xlabel(str(xAxisVarName))
-            axes.set_ylabel(str(yAxisVarname))
-            if hasattr(self, 'plotCanvas'):
-                self.dataPlotLayout.removeWidget(self.plotCanvas)
-                self.plotCanvas.close()
-            self.plotCanvas = FigureCanvas(self.dataFig)
-            self.dataPlotLayout.addWidget(self.plotCanvas)
+            self.dataAxes.cla()
+            self.dataAxes.plot(self.data[self.grabTruthTable()][str(xAxisVarName)],self.data[self.grabTruthTable()][str(yAxisVarname)],'.')
+            self.dataAxes.set_xlabel(str(xAxisVarName))
+            self.dataAxes.set_ylabel(str(yAxisVarname))
             self.plotCanvas.draw()
-            del axes
+
             
     #Function called to update image in tab 2
     def showImage(self):
         dummy = self.data[self.data['FileNumber'] == int(str(self.indexList.currentItem().text()))]
-        self.imageFig.clear()
-        self.imageFig = grabImage(dummy['Filename'].values[-1],dummy['FitType'].values[-1])
-        if hasattr(self, 'imageCanvas'):
-            self.imageIndexLayout.removeWidget(self.imageCanvas)
-            self.imageCanvas.close()
-        self.imageCanvas = FigureCanvas(self.imageFig)
-        self.imageIndexLayout.addWidget(self.imageCanvas)
+        #self.imageFig.clear()
+        #self.imageFig = grabImage(dummy['Filename'].values[-1],dummy['FitType'].values[-1])
+        grabImage(dummy['Filename'].values[-1],dummy['FitType'].values[-1],self.imageAxes,self.imageFig)
+        #if hasattr(self, 'imageCanvas'):
+        #    self.imageIndexLayout.removeWidget(self.imageCanvas)
+        #    self.imageCanvas.close()
+        #self.imageCanvas = FigureCanvas(self.imageFig)
+        #self.imageIndexLayout.addWidget(self.imageCanvas)
         self.imageCanvas.draw()
         
         self.imageDataTable.clear()
@@ -156,14 +161,20 @@ class Main(qMainWindow,uiMainWindow):
             self.plotData()
         self.varNames = self.varNames+newNames
         self.servThread.newData = pd.DataFrame()  
+        
     def addCutFunc(self):
         self.cutTable.insertRow(self.cutTable.rowCount())
         numRows = self.cutTable.rowCount()
-        newComboBox = QComboBox()
+        varNameComboBox = QComboBox()
+        cutTypeComboBox = QComboBox()
+        operators = ['==','<','<=','>','>=','!=']
         for name in self.varNames:
-            newComboBox.addItem(name)
-        self.cutTable.setCellWidget(numRows-1,0,newComboBox)
-        self.cutTable.setCellWidget(numRows-1,2,QCheckBox())
+            varNameComboBox.addItem(name)
+        for operator in operators:
+            cutTypeComboBox.addItem(operator)
+        self.cutTable.setCellWidget(numRows-1,0,varNameComboBox)
+        self.cutTable.setCellWidget(numRows-1,1,cutTypeComboBox)
+        self.cutTable.setCellWidget(numRows-1,3,QCheckBox())
     def delCutFunc(self):
         dummy = self.cutTable.selectionModel()
         delRows = []
@@ -174,16 +185,33 @@ class Main(qMainWindow,uiMainWindow):
         for row in delRows:
             self.cutTable.removeRow(row)
     def setCutsFunc(self):
+        self.plotData()
+    def grabTruthTable(self):
         rowCount = self.cutTable.rowCount()
+        #This should return a truth table that is all true elements
+        truthTable = pd.Series([True]*len(self.data))
         for i in xrange(0,rowCount):
-            if self.cutTable.cellWidget(i,2).isChecked():
+            if self.cutTable.cellWidget(i,3).isChecked():
                 field = str(self.cutTable.cellWidget(i,0).currentText())
-                cutText = str(self.cutTable.item(i,1).text())
-                andSplitCutText = cutText.split('&&')
-                for andSplitString in andSplitCutText:
-                    orSplitString = andSplitString.split('||')
-                    print orSplitString
-        
+                cutType = str(self.cutTable.cellWidget(i,1).currentText())
+                try:
+                    cutValue = float(self.cutTable.item(i,2).text())
+                    if cutType == '==':
+                        truthTable = truthTable & (self.data[field] == cutValue)
+                    elif cutType == '<':
+                        truthTable = truthTable & (self.data[field] < cutValue)
+                    elif cutType == '>':
+                        truthTable = truthTable & (self.data[field] > cutValue)
+                    elif cutType == '>=':
+                        truthTable = truthTable & (self.data[field] >= cutValue)
+                    elif cutType == '<=':
+                        truthTable = truthTable & (self.data[field] <= cutValue)
+                    elif cutType == '!=':
+                        truthTable = truthTable & (self.data[field] != cutValue)
+                except:
+                    self.cutTable.cellWidget(i,3).setCheckState(0)
+                    self.cutTable.cellWidget(i,2).item(i,2).setText('Invalid Cut Value')
+        return truthTable
 if __name__=='__main__':
     import sys
     from PyQt4 import QtGui

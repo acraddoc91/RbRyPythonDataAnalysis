@@ -6,4 +6,6 @@ Back-End:
 Front - End:
 -[x] Live Plotter
 -[] Fitter
--[] Data cutter
+-[x] Data cutter
+-[] Fix data cutter memory leak
+-[] Figure out way around colorbar update memory leak

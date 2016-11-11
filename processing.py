@@ -33,9 +33,9 @@ def shotProcessor(filename,fitType):
     shotFrame = shotFrame.join(fitObject.getFitVars())
     return shotFrame
 
-def grabImage(filename,fitType):
+def grabImage(filename,fitType,axes,figure):
     fittingClass = fittingClasses.fittingClassFromString(fitType)
     fitObject = fittingClass(filename)
-    image = fitObject.showImage()
+    image = fitObject.showImage(axes,figure)
     del fitObject
     return image
