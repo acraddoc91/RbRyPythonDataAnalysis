@@ -4,22 +4,20 @@ Created on Oct 11, 2016
 @author: Sandy
 '''
 import matplotlib as mpl
-from traitlets.config.application import catch_config_error
 mpl.use('Agg')
-from PyQt4.uic import loadUiType
-from PyQt4.QtCore import (QThread, pyqtSignal,SIGNAL,Qt)
+from PyQt5.uic import loadUiType
+from PyQt5.QtCore import (QThread, pyqtSignal)
 from dataServer import (requestServer,requestHandler)
 from processing import (shotProcessor,grabImage)
-from PyQt4.QtGui import (QListWidgetItem,QTableWidgetItem, QComboBox, QCheckBox,
+from PyQt5.QtWidgets import (QListWidgetItem,QTableWidgetItem, QComboBox, QCheckBox,
     QWidget, QHBoxLayout)
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt4agg import (FigureCanvasQTAgg as FigureCanvas)
+from matplotlib.backends.backend_qt5agg import (FigureCanvasQTAgg as FigureCanvas)
 import pandas as pd
 import threading
 import time
 import json
 import gc
-import objgraph
 
 #This loads the UI we want to use
 uiMainWindow, qMainWindow = loadUiType('testServer.ui')    
@@ -30,6 +28,10 @@ class serverThread(QThread):
     trigger = pyqtSignal(int)
     #This holds any newly processed data till it gets grabbed by the main thread
     newData = pd.DataFrame()
+    
+    newDataSignal = pyqtSignal()
+    showDataSignal = pyqtSignal()
+    
     def __init__(self):
         QThread.__init__(self)
         self.threadExiting = False
@@ -47,14 +49,14 @@ class serverThread(QThread):
             #Check if anything has updated on server
             if self.server.update:
                 #Grab command string from the server
-                self.commandString = self.server.out
+                self.commandString = str(self.server.out,'utf-8')
                 #Try and parse the JSON from the command and run the command
                 try:
                     command = json.loads(self.commandString)
                     self.runCommand(command)
                 #Generally the try block is going to fail because the JSON is fucked up
                 except:
-                    print 'shitty JSON'
+                    print('shitty JSON')
                 #Reset the server update status
                 self.server.update = False
             #Sleep for a bit so we're not constantly looping
@@ -70,12 +72,14 @@ class serverThread(QThread):
                     fitType = procRequest['fitType']
                     self.newData = self.newData.append(shotProcessor(filename, fitType), ignore_index=True)
                 except:
-                    print 'Bad request'
+                    print('Bad request')
             #If data has been processed let the main thread know it needs to update it's data
             if len(self.newData) != 0:
-                self.emit(SIGNAL('newData'))
+                #self.emit(SIGNAL('newData'))
+                self.newDataSignal.emit()
         if 'showData' in command:
-            self.emit(SIGNAL('showData'))
+            #self.emit(SIGNAL('showData'))
+            self.showDataSignal.emit()
 
 class Main(qMainWindow,uiMainWindow):
     #This is our main data frame. It will hold all our data, equivalent to the main workspace in Matlab
@@ -102,7 +106,8 @@ class Main(qMainWindow,uiMainWindow):
         self.imageIndexLayout.addWidget(self.imageCanvas)
         
         #Connect everything to their relevant functions
-        self.connect(self.servThread,SIGNAL('newData'),self.grabNewData)
+        #self.connect(self.servThread,SIGNAL('newData'),self.grabNewData)
+        self.servThread.newDataSignal.connect(self.grabNewData)
         self.xAxis.itemClicked.connect(self.plotData)
         self.yAxis.itemClicked.connect(self.plotData)
         self.indexList.itemClicked.connect(self.showImage)
@@ -140,7 +145,7 @@ class Main(qMainWindow,uiMainWindow):
         
         self.imageDataTable.clear()
         self.imageDataTable.setRowCount(len(self.varNames))
-        for i in xrange(0,len(self.varNames)):
+        for i in range(0,len(self.varNames)):
             self.imageDataTable.setItem(i,0,QTableWidgetItem(str(self.varNames[i])))
             self.imageDataTable.setItem(i,1,QTableWidgetItem(str(dummy[self.varNames[i]].values[-1])))
         del dummy
@@ -160,7 +165,7 @@ class Main(qMainWindow,uiMainWindow):
             self.indexList.setCurrentRow(0)
             self.plotData()
         self.varNames = self.varNames+newNames
-        self.servThread.newData = pd.DataFrame()  
+        self.servThread.newData = pd.DataFrame() 
         
     def addCutFunc(self):
         self.cutTable.insertRow(self.cutTable.rowCount())
@@ -190,7 +195,7 @@ class Main(qMainWindow,uiMainWindow):
         rowCount = self.cutTable.rowCount()
         #This should return a truth table that is all true elements
         truthTable = pd.Series([True]*len(self.data))
-        for i in xrange(0,rowCount):
+        for i in range(0,rowCount):
             if self.cutTable.cellWidget(i,3).isChecked():
                 field = str(self.cutTable.cellWidget(i,0).currentText())
                 cutType = str(self.cutTable.cellWidget(i,1).currentText())
@@ -214,8 +219,8 @@ class Main(qMainWindow,uiMainWindow):
         return truthTable
 if __name__=='__main__':
     import sys
-    from PyQt4 import QtGui
-    app = QtGui.QApplication(sys.argv)
+    from PyQt5 import QtWidgets
+    app = QtWidgets.QApplication(sys.argv)
     main = Main()
     main.show()
     sys.exit(app.exec_())

@@ -1,4 +1,7 @@
 #To Do:
+Overall:
+-[x] Migrate to using python3
+-[] Migrate to using PyQT5
 Back-End:
 -[x] Implement Shot Processor
 -[] Transfer Matlab Fitting Classes

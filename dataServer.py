@@ -3,9 +3,9 @@ Created on Sep 9, 2016
 
 @author: Sandy
 '''
-from BaseHTTPServer import (BaseHTTPRequestHandler,HTTPServer)
+from http.server import (BaseHTTPRequestHandler,HTTPServer)
 import socket
-from PyQt4.QtCore import (QThread,pyqtSignal,SIGNAL)
+from PyQt5.QtCore import (QThread,pyqtSignal)
 import threading
 import time
 
@@ -48,7 +48,7 @@ class requestHandler(BaseHTTPRequestHandler):
             retVal = method()
             self.wfile.flush() #actually send the response if not already done.
             return retVal
-        except socket.timeout, e:
+        except socket.timeout as e:
             retVal = ''
             #a read or a write timed out.  Discard this connection
             self.log_error("Request timed out: %r", e)

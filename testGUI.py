@@ -3,10 +3,10 @@ Created on Oct 5, 2016
 
 @author: Alex
 '''
-from PyQt4.uic import loadUiType
-import PyQt4.QtGui
+from PyQt5.uic import loadUiType
+from PyQt5 import QtGui
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt4agg import (FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
+from matplotlib.backends.backend_qt5agg import (FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 import numpy as np
 import pandas as pd
 from processing import shotProcessor
@@ -50,20 +50,19 @@ class Main(QMainWindow,Ui_MainWindow):
         axes.plot(x,np.sin(x))
         self.addmpl(fig)
     def loadDataFunc(self):
-        fileDialog = QtGui.QFileDialog(self)
+        fileDialog = QtWidgets.QFileDialog(self)
         fileDialog.setFilters('*.h5')
-        fileDialog.setFileMode(QtGui.QFileDialog.ExistingFiles)
+        fileDialog.setFileMode(QtWidgets.QFileDialog.ExistingFiles)
         fileDialog.exec_()
         for fileName in fileDialog.selectedFiles():
-            print fileName
+            print(fileName)
             self.shotData = self.shotData.append(shotProcessor(str(fileName), 'absGaussFit'), ignore_index=True)
-            print self.shotData
+            print(self.shotData)
 
 if __name__=='__main__':
     import sys
-    from PyQt4 import QtGui
-    
-    app = QtGui.QApplication(sys.argv)
+    from PyQt5 import QtWidgets
+    app = QtWidgets.QApplication(sys.argv)
     main = Main()
     main.show()
     sys.exit(app.exec_())
