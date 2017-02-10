@@ -7,6 +7,7 @@ Back-End:
 - [x] Implement Shot Processor
 - [ ] Transfer Matlab Fitting Classes
 - [x] HTTP command server
+- [x] Added processor thread
 
 Front - End:
 - [x] Live Plotter
@@ -14,3 +15,4 @@ Front - End:
 - [x] Data cutter
 - [ ] Fix data cutter memory leak
 - [ ] Figure out way around colorbar update memory leak
+- [ ] Switch over to using pyqtgraph for speed
