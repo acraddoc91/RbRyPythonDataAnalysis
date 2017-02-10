@@ -10,6 +10,9 @@ from matplotlib.backends.backend_qt5agg import (FigureCanvasQTAgg as FigureCanva
 import numpy as np
 import pandas as pd
 from processing import shotProcessor
+import os
+os.environ['PYQTGRAPH_QT_LIB']='PyQt5'
+import pyqtgraph as pg
 
 Ui_MainWindow,QMainWindow = loadUiType('mainGUI.ui')
 
@@ -19,36 +22,20 @@ class Main(QMainWindow,Ui_MainWindow):
         self.setupUi(self)
         self.cosPlot.clicked.connect(self.cosPlotFunc)
         self.sinPlot.clicked.connect(self.sinPlotFunc)
-        self.loadData.clicked.connect(self.loadDataFunc)
-        self.shotData = pd.DataFrame()
-        
         fig = Figure()
         self.addmpl(fig)
     def addmpl(self,fig):
-        self.canvas = FigureCanvas(fig)
-        self.livePlotLay.addWidget(self.canvas)
-        self.canvas.draw()
-        self.toolbar = NavigationToolbar(self.canvas,self,coordinates=True)
-        self.livePlotLay.addWidget(self.toolbar)
-    def rmmpl(self):
-        self.livePlotLay.removeWidget(self.canvas)
-        self.canvas.close()
-        self.livePlotLay.removeWidget(self.toolbar)
-        self.toolbar.close()
+        self.plotter = pg.PlotWidget()
+        self.livePlotLay.addWidget(self.plotter)
     def cosPlotFunc(self):
-        self.rmmpl()
-        fig = Figure()
-        axes = fig.add_subplot(111)
-        x = np.linspace(0,2*np.pi,1000)
-        axes.plot(x,np.cos(x))
-        self.addmpl(fig)
+        self.plotter.clear()
+        x = np.linspace(0,2*np.pi,100)
+        self.plotter.plot(x,np.cos(x),symbol='o',symbolSize=5,pen=None,clear=True)
+        self.plotter.setLabel('bottom',text='x')
+        self.plotter.setLabel('left',text='y')
     def sinPlotFunc(self):
-        self.rmmpl()
-        fig = Figure()
-        axes = fig.add_subplot(111)
         x = np.linspace(0,2*np.pi,1000)
-        axes.plot(x,np.sin(x))
-        self.addmpl(fig)
+        self.plotter.plot(x,np.sin(x),symbol='o',clear=True)
     def loadDataFunc(self):
         fileDialog = QtWidgets.QFileDialog(self)
         fileDialog.setFilters('*.h5')

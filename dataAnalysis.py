@@ -18,9 +18,15 @@ import threading
 import time
 import json
 from PyQt5.QtGui import QFont
+import os
+os.environ['PYQTGRAPH_QT_LIB']='PyQt5'
+import pyqtgraph as pg
 
 #This loads the UI we want to use
 uiMainWindow, qMainWindow = loadUiType('dataAnalysis.ui')    
+
+pg.setConfigOption('background', 'w')
+pg.setConfigOption('foreground', 'k')
 
 #This is a server class that will be started as a thread which will sit there and wait for HTTP commands then perform them. It wraps the server itself and allows it to interact with the GUI
 class serverThread(QThread):
@@ -132,10 +138,8 @@ class Main(qMainWindow,uiMainWindow):
         self.procThread.start()
         
         #Setup the data and image figures
-        self.dataFig = Figure()
-        self.dataAxes = self.dataFig.add_subplot(111)
-        self.plotCanvas = FigureCanvas(self.dataFig)
-        self.dataPlotLayout.addWidget(self.plotCanvas)
+        self.dataPlot = pg.PlotWidget()
+        self.dataPlotLayout.addWidget(self.dataPlot)
         
         self.imageFig = Figure()
         self.imageAxes = self.imageFig.add_subplot(111)
@@ -166,12 +170,12 @@ class Main(qMainWindow,uiMainWindow):
         if not self.data.empty:
             xAxisVarName = self.xAxis.currentItem().text()
             yAxisVarname = self.yAxis.currentItem().text()
-            self.dataAxes.cla()
-            self.dataAxes.plot(self.data[self.grabTruthTable()][str(xAxisVarName)],self.data[self.grabTruthTable()][str(yAxisVarname)],'.')
-            self.dataAxes.set_xlabel(str(xAxisVarName))
-            self.dataAxes.set_ylabel(str(yAxisVarname))
-            self.plotCanvas.draw()
-
+            try:
+                self.dataPlot.plot(self.data[self.grabTruthTable()][str(xAxisVarName)],self.data[self.grabTruthTable()][str(yAxisVarname)],symbol='o',symbolSize=7,pen=None,clear=True)
+                self.dataPlot.setLabel('bottom',text=str(xAxisVarName))
+                self.dataPlot.setLabel('left',text=str(yAxisVarname))
+            except:
+                print('Data type not valid for plotting')
             
     #Function called to update image in tab 2
     def showImage(self):
