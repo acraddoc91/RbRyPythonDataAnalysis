@@ -5,13 +5,11 @@ Created on Sep 2, 2016
 '''
 import h5py
 import numpy as np
-from matplotlib.figure import Figure
 import scipy.optimize as optimise
 import pandas as pd
 import sys
 import constants
 from constants import isatSigma
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def methodClassFromString(className):

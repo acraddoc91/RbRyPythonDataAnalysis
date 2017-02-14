@@ -11,8 +11,6 @@ from PyQt5.QtCore import (QThread, pyqtSignal)
 from dataServer import (requestServer,requestHandler)
 from processing import (shotProcessor,grabImage)
 from PyQt5.QtWidgets import (QListWidgetItem,QTableWidgetItem, QComboBox, QCheckBox,QFileDialog)
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import (FigureCanvasQTAgg as FigureCanvas)
 import pandas as pd
 import threading
 import time
@@ -27,6 +25,7 @@ uiMainWindow, qMainWindow = loadUiType('dataAnalysis.ui')
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
+LabelStyle = {'color': '#000', 'font-size': '24px'}
 
 #This is a server class that will be started as a thread which will sit there and wait for HTTP commands then perform them. It wraps the server itself and allows it to interact with the GUI
 class serverThread(QThread):
@@ -141,11 +140,6 @@ class Main(qMainWindow,uiMainWindow):
         self.dataPlot = pg.PlotWidget()
         self.dataPlotLayout.addWidget(self.dataPlot)
         
-        self.imageFig = Figure()
-        self.imageAxes = self.imageFig.add_subplot(111)
-        self.imageCanvas = FigureCanvas(self.imageFig)
-        self.imageIndexLayout.addWidget(self.imageCanvas)
-        
         #Connect everything to their relevant functions
         self.procThread.newDataSignal.connect(self.grabNewData)
         self.xAxis.itemClicked.connect(self.plotData)
@@ -161,10 +155,6 @@ class Main(qMainWindow,uiMainWindow):
         #Setup cutTable
         self.cutTable.setHorizontalHeaderLabels(['Field','Cut Type','Cut Value','Active'])
     
-        #Set text size
-        labelFont = QFont('Arial',15)
-        self.label_3.setFont(labelFont)
-    
     #Function called to plot data to the graph in tab 1
     def plotData(self):
         if not self.data.empty:
@@ -172,8 +162,8 @@ class Main(qMainWindow,uiMainWindow):
             yAxisVarname = self.yAxis.currentItem().text()
             try:
                 self.dataPlot.plot(self.data[self.grabTruthTable()][str(xAxisVarName)],self.data[self.grabTruthTable()][str(yAxisVarname)],symbol='o',symbolSize=7,pen=None,clear=True)
-                self.dataPlot.setLabel('bottom',text=str(xAxisVarName))
-                self.dataPlot.setLabel('left',text=str(yAxisVarname))
+                self.dataPlot.setLabel('bottom',text=str(xAxisVarName),**LabelStyle)
+                self.dataPlot.setLabel('left',text=str(yAxisVarname),**LabelStyle)
             except:
                 print('Data type not valid for plotting')
             
